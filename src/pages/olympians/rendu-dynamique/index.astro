@@ -1,0 +1,42 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import olympians from "../../../assets/olympians.json";
+import { slugify } from "../../../utils/slug";
+
+const sports = [...new Set(olympians.map((athlete) => athlete.sport))].sort();
+
+const entries = sports.map((sport) => {
+  const athletes = olympians.filter((athlete) => athlete.sport === sport);
+  const medals = athletes.reduce(
+    (acc, athlete) => acc + Number(athlete.gold) + Number(athlete.silver) + Number(athlete.bronze),
+    0
+  );
+  return {
+    sport,
+    slug: slugify(sport),
+    count: athletes.length,
+    medals,
+  };
+});
+---
+
+<Layout>
+  <section class="grid gap-4">
+    <h1 class="text-3xl font-semibold text-sky-200">Olympiens &ndash; rendu dynamique</h1>
+    <p class="max-w-3xl text-sm text-slate-300">
+      Chaque sport dispose d'une route dynamique. Les graphiques mettent en avant la relation taille/poids et
+      la repartition des medailles par nationalite.
+    </p>
+    <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {entries.map((entry) => (
+        <li class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 transition hover:border-sky-400">
+          <a class="flex flex-col gap-2" href={`/olympians/rendu-dynamique/${entry.slug}`}>
+            <span class="text-lg font-semibold text-sky-100">{entry.sport}</span>
+            <span class="text-xs uppercase tracking-wide text-slate-400">{entry.count} athl&egrave;tes</span>
+            <span class="text-xs text-slate-500">{entry.medals} medailles cumul&eacute;es</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Layout>

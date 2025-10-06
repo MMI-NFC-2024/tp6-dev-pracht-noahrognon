@@ -1,0 +1,85 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import PlotFigure from "../../../components/PlotFigure.astro";
+import * as Plot from "@observablehq/plot";
+import cars from "../../../assets/cars.json";
+
+export function getStaticPaths() {
+  const years = [...new Set(cars.map((car) => car.year))];
+  return years.map((year) => ({
+    params: { year: String(year) },
+  }));
+}
+
+const { year } = Astro.params;
+const numericYear = Number.parseInt(year ?? "", 10);
+
+if (Number.isNaN(numericYear)) {
+  throw new Error(`Parametre d'annee invalide: "${year}".`);
+}
+
+const filtered = cars.filter((car) => car.year === numericYear);
+
+if (filtered.length === 0) {
+  throw new Error(`Aucune voiture trouvee pour l'annee ${year}.`);
+}
+
+const cleaned = filtered.filter(
+  (car) => car["power (hp)"] !== null && car["weight (lb)"] !== null && car["economy (mpg)"] !== null
+);
+
+const displayYear = numericYear > 1900 ? numericYear : 1900 + numericYear;
+const avgMpg =
+  cleaned.length > 0
+    ? cleaned.reduce((acc, car) => acc + Number(car["economy (mpg)"]), 0) / cleaned.length
+    : 0;
+const avgWeight =
+  cleaned.length > 0
+    ? cleaned.reduce((acc, car) => acc + Number(car["weight (lb)"]), 0) / cleaned.length
+    : 0;
+
+const plotOptions = {
+  grid: true,
+  height: 460,
+  inset: 12,
+  color: { legend: false },
+  marks: [
+    Plot.dot(cleaned, {
+      x: "weight (lb)",
+      y: "power (hp)",
+      fill: "economy (mpg)",
+      r: 6,
+      tip: true,
+    }),
+    Plot.linearRegressionY(cleaned, {
+      x: "weight (lb)",
+      y: "power (hp)",
+      stroke: "#f97316",
+    }),
+  ],
+  x: { label: "Poids (lb)" },
+  y: { label: "Puissance (hp)" },
+  title: `Puissance vs poids - ${displayYear}`,
+};
+---
+
+<Layout>
+  <section class="grid gap-6">
+    <header class="grid gap-2">
+      <p class="text-sm uppercase tracking-widest text-slate-400">Voitures</p>
+      <h1 class="text-3xl font-semibold text-sky-100">Mill&eacute;sime {displayYear}</h1>
+      <p class="max-w-3xl text-sm text-slate-300">
+        Cette page est prerendue au build via <code class="rounded bg-slate-800 px-2 py-1 text-xs">getStaticPaths</code>.
+        Les donnees sont filtrees a l'avance pour un chargement immediat.
+      </p>
+    </header>
+    <div class="grid gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+      <PlotFigure options={plotOptions} />
+      <div class="grid gap-1 text-xs text-slate-300">
+        <span>Modeles retenus&nbsp;: {cleaned.length} / {filtered.length}</span>
+        <span>Consommation moyenne&nbsp;: {avgMpg.toFixed(1)} mpg</span>
+        <span>Poids moyen&nbsp;: {avgWeight.toFixed(0)} lb</span>
+      </div>
+    </div>
+  </section>
+</Layout>

@@ -1,0 +1,32 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import cars from "../../../assets/cars.json";
+
+const years = [...new Set(cars.map((car) => car.year))].sort((a, b) => a - b);
+
+const entries = years.map((year) => {
+  const label = year > 1900 ? year : 1900 + year;
+  const count = cars.filter((car) => car.year === year).length;
+  return { year, label, count };
+});
+---
+
+<Layout>
+  <section class="grid gap-4">
+    <h1 class="text-3xl font-semibold text-sky-200">Voitures &ndash; rendu statique</h1>
+    <p class="max-w-2xl text-sm text-slate-300">
+      Ces routes sont preconstruites avec <code class="rounded bg-slate-800 px-2 py-1 text-xs">getStaticPaths</code>.
+      Selectionnez une annee pour afficher le graphique pregenere.
+    </p>
+    <ul class="grid gap-3 sm:grid-cols-3">
+      {entries.map((entry) => (
+        <li class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 transition hover:border-sky-400">
+          <a class="flex flex-col gap-2" href={`/cars/rendu-statique/${entry.year}`}>
+            <span class="text-lg font-semibold text-sky-100">Annee {entry.label}</span>
+            <span class="text-xs uppercase tracking-wide text-slate-400">{entry.count} modeles</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Layout>

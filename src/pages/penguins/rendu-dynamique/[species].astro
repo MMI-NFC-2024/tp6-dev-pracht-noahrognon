@@ -1,0 +1,80 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import PlotFigure from "../../../components/PlotFigure.astro";
+import * as Plot from "@observablehq/plot";
+import penguins from "../../../assets/penguins.json";
+import { slugify, deslugify } from "../../../utils/slug";
+
+export const prerender = false;
+
+const { species } = Astro.params;
+
+const filteredPenguins = penguins.filter((penguin) => slugify(penguin.species) === species);
+
+if (filteredPenguins.length === 0) {
+  throw new Error(`Aucune espece ne correspond au parametre "${species}".`);
+}
+
+const displaySpecies = filteredPenguins[0].species;
+const cleaned = filteredPenguins.filter(
+  (penguin) =>
+    penguin.culmen_length_mm !== null &&
+    penguin.culmen_depth_mm !== null &&
+    penguin.body_mass_g !== null &&
+    penguin.flipper_length_mm !== null
+);
+
+const average = (values: number[]) =>
+  values.length > 0 ? values.reduce((acc, value) => acc + value, 0) / values.length : 0;
+
+const avgMass = Number.parseFloat(average(cleaned.map((penguin) => penguin.body_mass_g)).toFixed(1));
+const avgFlipper = Number.parseFloat(average(cleaned.map((penguin) => penguin.flipper_length_mm)).toFixed(1));
+const uniqueIslands = [...new Set(cleaned.map((penguin) => penguin.island))];
+
+const plotOptions = {
+  grid: true,
+  height: 460,
+  inset: 12,
+  marks: [
+    Plot.dot(cleaned, {
+      x: "culmen_length_mm",
+      y: "culmen_depth_mm",
+      fill: "island",
+      stroke: "sex",
+      r: 6,
+      tip: true,
+    }),
+    Plot.linearRegressionY(cleaned, {
+      x: "culmen_length_mm",
+      y: "culmen_depth_mm",
+      stroke: "#38bdf8",
+    }),
+  ],
+  x: { label: "Longueur bec (mm)" },
+  y: { label: "Profondeur bec (mm)" },
+  title: `Pingouins ${displaySpecies}`,
+};
+---
+
+<Layout>
+  <section class="grid gap-6">
+    <header class="grid gap-2">
+      <p class="text-sm uppercase tracking-widest text-slate-400">Pingouins</p>
+      <h1 class="text-3xl font-semibold text-sky-100">Espece {displaySpecies}</h1>
+      <p class="max-w-3xl text-sm text-slate-300">
+        Cette page est generee dynamiquement grace au parametre d'URL&nbsp;:
+        <code class="rounded bg-slate-800 px-2 py-1 text-xs">{deslugify(species ?? "")}</code>.
+        Les donnees sont filtrees au moment de la requete, sans prerender.
+      </p>
+    </header>
+    <div class="grid gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+      <PlotFigure options={plotOptions} />
+      <div class="grid gap-1 text-xs text-slate-300">
+        <span>Masse moyenne&nbsp;: {avgMass} g</span>
+        <span>Longueur moyenne des ailes&nbsp;: {avgFlipper} mm</span>
+        <span>Nombre d'individus consideres&nbsp;: {cleaned.length}</span>
+        <span>Iles observees&nbsp;: {uniqueIslands.join(", ")}</span>
+      </div>
+    </div>
+  </section>
+</Layout>

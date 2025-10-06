@@ -1,0 +1,137 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import PlotFigure from "../../../components/PlotFigure.astro";
+import * as Plot from "@observablehq/plot";
+import olympians from "../../../assets/olympians.json";
+import { slugify, deslugify } from "../../../utils/slug";
+
+export const prerender = false;
+
+const { sport } = Astro.params;
+
+const filtered = olympians.filter((athlete) => slugify(athlete.sport) === sport);
+
+if (filtered.length === 0) {
+  throw new Error(`Aucun sport ne correspond au parametre "${sport}".`);
+}
+
+const displaySport = filtered[0].sport;
+
+const withMetrics = filtered.filter(
+  (athlete) => athlete.height !== null && athlete.weight !== null && athlete.sex !== null
+);
+
+const scatterMarks = [
+  Plot.dot(withMetrics, {
+    x: "height",
+    y: "weight",
+    stroke: "sex",
+    fill: "sex",
+    r: 5,
+    opacity: 0.85,
+    tip: true,
+  }),
+];
+
+if (withMetrics.length > 1) {
+  scatterMarks.push(
+    Plot.linearRegressionY(withMetrics, {
+      x: "height",
+      y: "weight",
+      stroke: "#38bdf8",
+    })
+  );
+}
+
+const scatterPlot = {
+  grid: true,
+  height: 460,
+  inset: 12,
+  color: { legend: false },
+  marks: scatterMarks,
+  x: { label: "Taille (m)" },
+  y: { label: "Poids (kg)" },
+  title: `Morphologie des athletes - ${displaySport}`,
+};
+
+const medalMap = new Map<string, { country: string; total: number }>();
+filtered.forEach((athlete) => {
+  const country = athlete.nationality ?? "N/A";
+  const current = medalMap.get(country) ?? { country, total: 0 };
+  const increment = Number(athlete.gold ?? 0) + Number(athlete.silver ?? 0) + Number(athlete.bronze ?? 0);
+  medalMap.set(country, { country, total: current.total + increment });
+});
+
+const medalsByCountry = Array.from(medalMap.values())
+  .filter((entry) => entry.total > 0)
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 10);
+
+const medalDomain = medalsByCountry.map((entry) => entry.country).reverse();
+
+const medalPlot = {
+  grid: true,
+  height: 320,
+  inset: 12,
+  marks: [
+    Plot.barX(medalsByCountry, {
+      y: "country",
+      x: "total",
+      fill: "#facc15",
+      tip: true,
+    }),
+  ],
+  x: { label: "Total medailles" },
+  y: { label: "Pays", domain: medalDomain },
+  title: `Top medailles - ${displaySport}`,
+};
+
+const average = (values: number[]) =>
+  values.length > 0 ? values.reduce((acc, value) => acc + value, 0) / values.length : 0;
+
+const avgHeight = average(withMetrics.map((athlete) => athlete.height));
+const avgWeight = average(withMetrics.map((athlete) => athlete.weight));
+const totalMedals = filtered.reduce(
+  (acc, athlete) => acc + Number(athlete.gold ?? 0) + Number(athlete.silver ?? 0) + Number(athlete.bronze ?? 0),
+  0
+);
+
+const sexCounts = filtered.reduce(
+  (acc, athlete) => {
+    const key = athlete.sex ?? "unknown";
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  },
+  {} as Record<string, number>
+);
+
+const sexBreakdown = Object.entries(sexCounts)
+  .map(([key, value]) => `${key}: ${value}`)
+  .join(" | ");
+---
+
+<Layout>
+  <section class="grid gap-6">
+    <header class="grid gap-2">
+      <p class="text-sm uppercase tracking-widest text-slate-400">Olympiens</p>
+      <h1 class="text-3xl font-semibold text-sky-100">Discipline {displaySport}</h1>
+      <p class="max-w-3xl text-sm text-slate-300">
+        Route dynamique fondee sur le parametre&nbsp;:
+        <code class="rounded bg-slate-800 px-2 py-1 text-xs">{deslugify(sport ?? "")}</code>.
+        Les graphiques analysent la morphologie et les medailles obtenues.
+      </p>
+    </header>
+    <div class="grid gap-5 rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+      <PlotFigure options={scatterPlot} />
+      {medalsByCountry.length > 0 && <PlotFigure options={medalPlot} />}
+      <div class="grid gap-1 text-xs text-slate-300">
+        <span>Athletes disponibles&nbsp;: {filtered.length}</span>
+        <span>Profil complet (taille+poids)&nbsp;: {withMetrics.length}</span>
+        <span>Taille moyenne&nbsp;: {avgHeight.toFixed(2)} m</span>
+        <span>Poids moyen&nbsp;: {avgWeight.toFixed(1)} kg</span>
+        <span>Total medailles&nbsp;: {totalMedals}</span>
+        <span>Repartition par sexe&nbsp;: {sexBreakdown}</span>
+      </div>
+    </div>
+  </section>
+</Layout>

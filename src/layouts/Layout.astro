@@ -1,26 +1,52 @@
 ---
 import "../styles/global.css";
+
+const navLinks = [
+  { href: "/", label: "Accueil" },
+  { href: "/penguins/rendu-dynamique", label: "Pingouins dynamiques" },
+  { href: "/penguins/rendu-statique", label: "Pingouins statiques" },
+  { href: "/cars/rendu-dynamique", label: "Voitures dynamiques" },
+  { href: "/cars/rendu-statique", label: "Voitures statiques" },
+  { href: "/weather/rendu-dynamique", label: "Meteo dynamique" },
+  { href: "/weather/rendu-statique", label: "Meteo statique" },
+  { href: "/olympians/rendu-dynamique", label: "Olympiens dynamiques" },
+  { href: "/olympians/rendu-statique", label: "Olympiens statiques" },
+];
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="fr" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
-    <title>Astro Basics</title>
+    <title>Visualisation de donnees</title>
   </head>
-  <body>
-    <slot />
+  <body class="min-h-screen flex flex-col">
+    <header class="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
+        <a href="/" class="text-lg font-semibold tracking-wide text-sky-300">Plot Observatory</a>
+        <nav class="flex flex-wrap gap-2 text-sm text-slate-200">
+          {navLinks.map((item) => (
+            <a
+              href={item.href}
+              class="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5 transition hover:border-sky-400 hover:bg-slate-900 hover:text-sky-300"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </div>
+    </header>
+    <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-10">
+      <slot />
+    </main>
+    <footer class="border-t border-slate-800 bg-slate-950/70">
+      <div class="mx-auto max-w-6xl px-4 py-6 text-xs text-slate-400">
+        Donnees visualisees avec Astro et Observable Plot.
+      </div>
+    </footer>
   </body>
 </html>
 
-<style>
-  html,
-  body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-  }
-</style>

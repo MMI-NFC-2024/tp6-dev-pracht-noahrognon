@@ -1,0 +1,110 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import PlotFigure from "../../../components/PlotFigure.astro";
+import * as Plot from "@observablehq/plot";
+import weather from "../../../assets/weather.json";
+import { slugify, deslugify } from "../../../utils/slug";
+
+export function getStaticPaths() {
+  const locations = [...new Set(weather.map((item) => item.location))];
+  return locations.map((location) => ({
+    params: { location: slugify(location) },
+  }));
+}
+
+const { location } = Astro.params;
+
+const filtered = weather.filter((entry) => slugify(entry.location) === location);
+
+if (filtered.length === 0) {
+  throw new Error(`Aucune ville ne correspond au parametre "${location}".`);
+}
+
+const displayLocation = filtered[0].location;
+
+const withDate = filtered
+  .filter((entry) => entry.temp_max !== null && entry.temp_min !== null)
+  .map((entry) => ({
+    ...entry,
+    dateObj: new Date(entry.date),
+  }))
+  .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+const tempsLong = withDate.flatMap((entry) => [
+  { date: entry.dateObj, value: entry.temp_max, serie: "Max" },
+  { date: entry.dateObj, value: entry.temp_min, serie: "Min" },
+]);
+
+const precipitationSeries = withDate.map((entry) => ({
+  date: entry.dateObj,
+  precipitation: entry.precipitation,
+}));
+
+const average = (values: number[]) =>
+  values.length > 0 ? values.reduce((acc, value) => acc + value, 0) / values.length : 0;
+
+const avgMax = average(withDate.map((entry) => entry.temp_max));
+const avgMin = average(withDate.map((entry) => entry.temp_min));
+const totalPrecipitation = precipitationSeries.reduce((acc, entry) => acc + entry.precipitation, 0);
+
+const temperaturePlot = {
+  grid: true,
+  height: 360,
+  inset: 12,
+  marks: [
+    Plot.lineY(tempsLong, {
+      x: "date",
+      y: "value",
+      stroke: (d) => (d.serie === "Max" ? "#f97316" : "#38bdf8"),
+      strokeWidth: 2,
+      tip: true,
+    }),
+  ],
+  x: { type: "utc", label: "Date" },
+  y: { label: "Temperature (C)" },
+  title: `Temperatures quotidiennes - ${displayLocation}`,
+};
+
+const precipitationPlot = {
+  grid: true,
+  height: 240,
+  inset: 12,
+  marks: [
+    Plot.areaY(precipitationSeries, {
+      x: "date",
+      y: "precipitation",
+      curve: "step",
+      fill: "#38bdf8",
+      fillOpacity: 0.45,
+      stroke: "#38bdf8",
+      tip: true,
+    }),
+  ],
+  x: { type: "utc", label: "Date" },
+  y: { label: "Precipitations (mm)" },
+  title: `Precipitations quotidiennes - ${displayLocation}`,
+};
+---
+
+<Layout>
+  <section class="grid gap-6">
+    <header class="grid gap-2">
+      <p class="text-sm uppercase tracking-widest text-slate-400">Meteo</p>
+      <h1 class="text-3xl font-semibold text-sky-100">{displayLocation}</h1>
+      <p class="max-w-3xl text-sm text-slate-300">
+        Page prerendue via <code class="rounded bg-slate-800 px-2 py-1 text-xs">getStaticPaths</code> pour le parametre
+        <code class="rounded bg-slate-800 px-2 py-1 text-xs">{deslugify(location ?? "")}</code>.
+      </p>
+    </header>
+    <div class="grid gap-5 rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+      <PlotFigure options={temperaturePlot} />
+      <PlotFigure options={precipitationPlot} />
+      <div class="grid gap-1 text-xs text-slate-300">
+        <span>Temperature max moyenne&nbsp;: {avgMax.toFixed(1)} C</span>
+        <span>Temperature min moyenne&nbsp;: {avgMin.toFixed(1)} C</span>
+        <span>Precipitations cumulees&nbsp;: {totalPrecipitation.toFixed(1)} mm</span>
+        <span>Code couleurs&nbsp;: max (orange) / min (bleu)</span>
+      </div>
+    </div>
+  </section>
+</Layout>

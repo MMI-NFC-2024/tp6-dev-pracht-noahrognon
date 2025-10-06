@@ -1,21 +1,194 @@
 ---
-import PlotFigure from "../components/PlotFigure.astro";
 import Layout from "../layouts/Layout.astro";
+import PlotFigure from "../components/PlotFigure.astro";
 import * as Plot from "@observablehq/plot";
 import penguins from "../assets/penguins.json";
+import { slugify } from "../utils/slug";
+
+const cleanedPenguins = penguins.filter(
+  (penguin) =>
+    penguin.culmen_length_mm !== null &&
+    penguin.culmen_depth_mm !== null &&
+    penguin.flipper_length_mm !== null &&
+    penguin.body_mass_g !== null
+);
+
+const speciesList = [...new Set(cleanedPenguins.map((penguin) => penguin.species))].sort();
+
+const toFixed = (value: number) => (Number.isFinite(value) ? Number.parseFloat(value.toFixed(1)) : null);
+
+const penguinTabs = speciesList.map((species) => {
+  const data = cleanedPenguins.filter((penguin) => penguin.species === species);
+  const bodyMass = data.map((penguin) => penguin.body_mass_g);
+  const avgMass = toFixed(bodyMass.reduce((acc, value) => acc + value, 0) / bodyMass.length);
+  const avgFlipper = toFixed(
+    data.reduce((acc, penguin) => acc + penguin.flipper_length_mm, 0) / data.length
+  );
+  return {
+    species,
+    slug: slugify(species),
+    count: data.length,
+    avgMass,
+    avgFlipper,
+    plotOptions: {
+      grid: true,
+      height: 420,
+      inset: 12,
+      marks: [
+        Plot.dot(data, {
+          x: "culmen_length_mm",
+          y: "culmen_depth_mm",
+          fill: "island",
+          stroke: "sex",
+          r: 6,
+          tip: true,
+        }),
+        Plot.linearRegressionY(data, {
+          x: "culmen_length_mm",
+          y: "culmen_depth_mm",
+          stroke: "#38bdf8",
+        }),
+      ],
+      x: { label: "Longueur bec (mm)" },
+      y: { label: "Profondeur bec (mm)" },
+      title: `Profil de l'espece ${species}`,
+    },
+  };
+});
 ---
 
 <Layout>
-  <h1 class="text-2xl">Test Astro et Plot (Observablehq)</h1>
-  <PlotFigure
-    options={{
-      marks: [
-        Plot.dot(penguins, {
-          x: "culmen_length_mm",
-          y: "culmen_depth_mm",
-          stroke: "species",
-        }),
-      ],
-    }}
-  />
+  <section class="grid gap-6">
+    <h1 class="text-3xl font-semibold text-sky-100">Explorateur de donnees</h1>
+    <p class="max-w-3xl text-sm text-slate-300">
+      Visualisez et comparez plusieurs jeux de donnees (pingouins, voitures, meteo et olympiens)
+      a travers des routes dynamiques et statiques. Utilisez les onglets ci-dessous pour parcourir
+      les especes de pingouins et explorer leurs morphologies.
+    </p>
+  </section>
+
+  <section class="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-slate-950/40">
+    <header class="flex flex-col gap-2">
+      <h2 class="text-2xl font-semibold text-sky-200">Pingouins par espece</h2>
+      <p class="text-sm text-slate-300">
+        Chaque onglet affiche un nuage de points entre la longueur et la profondeur du bec. Les couleurs
+        representent l'ile de provenance et les contours differencient les sexes.
+      </p>
+    </header>
+    <div class="tabs grid gap-3">
+      {penguinTabs.map((tab, index) => (
+        <article class="tab grid gap-3" data-species={tab.species}>
+          <input
+            type="radio"
+            id={`tab-${tab.slug}`}
+            name="penguin-species"
+            value={tab.slug}
+            checked={index === 0}
+          />
+          <label for={`tab-${tab.slug}`}>
+            <span class="tab-title">{tab.species}</span>
+            <span class="tab-meta">{tab.count} individus</span>
+          </label>
+          <div class="tab-content grid gap-4">
+            <PlotFigure options={tab.plotOptions} />
+            <p class="text-xs text-slate-300">
+              Masse moyenne&nbsp;: {tab.avgMass ?? "-"} g &bull; Longueur moyenne des ailes&nbsp;: {tab.avgFlipper ?? "-"} mm
+            </p>
+            <div class="grid gap-2 text-xs text-slate-400">
+              <span>
+                Rendu dynamique&nbsp;: <a class="link" href={`/penguins/rendu-dynamique/${tab.slug}`}>consulter la page</a>
+              </span>
+              <span>
+                Rendu statique&nbsp;: <a class="link" href={`/penguins/rendu-statique/${tab.slug}`}>version prerendue</a>
+              </span>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+    <h2 class="text-xl font-semibold text-sky-200">Aller plus loin</h2>
+    <p class="text-sm text-slate-300">
+      Le menu superieur donne acces aux rendus dynamiques (prerender desactive) et statiques (getStaticPaths)
+      pour chacun des jeux de donnees. Chaque page inclut une selection specifique et un graphique adapte.
+    </p>
+  </section>
 </Layout>
+
+<style>
+  .tabs {
+    position: relative;
+  }
+
+  .tab {
+    position: relative;
+    border-radius: 1.25rem;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.6));
+    border: 1px solid rgba(51, 65, 85, 0.8);
+    padding: 1.5rem;
+  }
+
+  .tab input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .tab label {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 9999px;
+    background: rgba(30, 41, 59, 0.75);
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    color: #f1f5f9;
+    transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  .tab label .tab-meta {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: #cbd5f5;
+  }
+
+  .tab-content {
+    display: none;
+    padding-top: 1rem;
+  }
+
+  .tab input[type="radio"]:checked + label {
+    border-color: rgba(56, 189, 248, 0.8);
+    color: #38bdf8;
+    transform: translateY(-2px);
+  }
+
+  .tab input[type="radio"]:checked + label + .tab-content {
+    display: grid;
+    animation: fadeIn 0.35s ease;
+  }
+
+  .link {
+    color: #38bdf8;
+  }
+
+  .link:hover {
+    text-decoration: underline;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

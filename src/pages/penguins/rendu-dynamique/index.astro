@@ -1,0 +1,37 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import penguins from "../../../assets/penguins.json";
+import { slugify } from "../../../utils/slug";
+
+const speciesList = [...new Set(penguins.map((item) => item.species))].sort();
+
+const entries = speciesList.map((species) => {
+  const data = penguins.filter((item) => item.species === species);
+  const slug = slugify(species);
+  return {
+    species,
+    slug,
+    count: data.length,
+  };
+});
+---
+
+<Layout>
+  <section class="grid gap-4">
+    <h1 class="text-3xl font-semibold text-sky-200">Pingouins &ndash; rendu dynamique</h1>
+    <p class="max-w-2xl text-sm text-slate-300">
+      Chaque lien ci-dessous pointe vers une route parametrique dynamique qui desactive le prerender.
+      Les donnees sont filtrees a la vol&eacute;e pour l'espece choisie.
+    </p>
+    <ul class="grid gap-3 sm:grid-cols-2">
+      {entries.map((entry) => (
+        <li class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 transition hover:border-sky-400">
+          <a class="flex flex-col gap-2" href={`/penguins/rendu-dynamique/${entry.slug}`}>
+            <span class="text-lg font-semibold text-sky-100">{entry.species}</span>
+            <span class="text-xs uppercase tracking-wide text-slate-400">{entry.count} individus</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Layout>
